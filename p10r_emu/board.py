@@ -206,7 +206,12 @@ class Machine:
     def provision(self, band):
         """Program a factory-fresh EEPROM with a frequency band, the way the
         production line does it over the CLI, then reboot."""
-        self.run_ms(3000)
+        seen = ""
+        for _ in range(40):                 # the RA build needs ~5.5 s to boot
+            self.run_ms(250)
+            seen += self.take_console()
+            if "CLI> " in seen:
+                break
         out = self.command("setBand %s" % band, 1500)
         self.reset()
         return "Successful" in out

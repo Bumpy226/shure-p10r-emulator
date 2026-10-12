@@ -36,7 +36,13 @@ python -m p10r_emu --cpu ra        # P10R+, Renesas build
 python -m p10r_emu --cpu p10r      # original P10R
 python -m p10r_emu --band L8       # another band (sets the board variant too)
 python -m p10r_emu --tx 474.325,-50 --tx 480.0,-70
+python -m p10r_emu --image some/App_P10R.bin    # the unit is detected from the image
 ```
+
+The `.bin` files are looked for in this folder and then in its parent
+(`--firmware-dir` overrides that). Each image only runs on its own machine:
+`--cpu` picks the machine and its default image, `--image` alone picks the
+machine from the image contents.
 
 `run_emulator.bat` does the same from Explorer and passes arguments through.
 
