@@ -13,6 +13,7 @@ the firmware's serial CLI.
     :noise DBM               noise floor
     :battery VOLTS           :volume 0-255          :phones 0|1
     :state                   tuned frequency, LEDs, antenna
+    :power 0|1               power switch (P10R only)     :charger 0|1  docked in a charger
     :reset                   reset the CPU           :quit
 """
 import sys
@@ -72,15 +73,19 @@ def repl(m, stream, out=sys.stdout):
         elif cmd == "battery":
             m.board.battery_mv = float(a[0]) * 1000.0
         elif cmd == "volume":
-            m.board.fpga.volume = int(a[0])
+            m.set_volume(int(a[0]))
         elif cmd == "phones":
-            m.board.fpga.set_phones(a[0] not in ("0", "off"))
+            m.set_phones(a[0] not in ("0", "off"))
+        elif cmd == "power" and hasattr(m, "set_power"):
+            m.set_power(a[0] not in ("0", "off"))
+        elif cmd == "charger" and hasattr(m.board, "charger"):
+            m.board.charger = a[0] not in ("0", "off")
         elif cmd == "state":
             b = m.board
             out.write("t=%.0f ms  tuned %.3f MHz  LO %.3f MHz  antenna %s  "
                       "leds(red,green,rf,backlight)=%s\n" % (
                           m.time_ms, b.synth.rf_khz / 1000, b.synth.lo_khz / 1000,
-                          b.fpga.antenna(), ",".join("%.2f" % x for x in b.fpga.leds())))
+                          m.antenna(), ",".join("%.2f" % x for x in m.leds())))
         elif cmd == "reset":
             m.reset()
         else:
@@ -89,5 +94,5 @@ def repl(m, stream, out=sys.stdout):
         if m.fault:
             out.write("EMULATION FAULT: %s\n" % m.fault)
             return 2
-    m.board.eeprom.save()
+    m.save()
     return rc

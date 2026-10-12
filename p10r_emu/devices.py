@@ -22,7 +22,10 @@ class St7565(SpiSlave):
     not part of the SPI stream; whoever owns it sets `.a0`."""
     COLS, PAGES = 132, 8
 
-    def __init__(self):
+    def __init__(self, two_byte=(0x81, 0xF8, 0xAC, 0xAD)):
+        # commands that take a parameter byte; the P10R's controller treats
+        # the static-indicator commands (0xAC/0xAD) as single bytes
+        self.two_byte = tuple(two_byte)
         self.reset()
 
     def reset(self):
@@ -81,7 +84,7 @@ class St7565(SpiSlave):
             page, col = self.page, self.col
             self.start_line = 0
             self.page = self.col = 0
-        elif c in (0x81, 0xF8, 0xAC, 0xAD):
+        elif c in self.two_byte:
             self._arg = c
         self.dirty = True
         return 0

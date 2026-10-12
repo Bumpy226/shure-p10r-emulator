@@ -101,7 +101,7 @@ class Board:
 
 
 class Machine:
-    """Host-side API common to both CPU variants.  Subclasses provide
+    """Host-side API common to all machines.  Subclasses provide
     `self.cpu`, `self.board`, `self.cli` (UART model) and `reset()`."""
     name = "P10R+"
 
@@ -139,8 +139,33 @@ class Machine:
         return self.take_console()
 
     # -- front panel ----------------------------------------------------
+    button_names = ("up", "down", "enter", "exit", "scan")
+    has_phones = True           # earphone-detect input is modelled
+
     def button(self, name, down):
         self.board.fpga.set_button(BUTTONS[name], down)
+
+    def leds(self):
+        """Brightness 0..1 of (red, green, rf, backlight)."""
+        return self.board.fpga.leds()
+
+    def antenna(self):
+        return self.board.fpga.antenna()
+
+    def get_volume(self):
+        return self.board.fpga.volume
+
+    def set_volume(self, v):
+        self.board.fpga.volume = max(0, min(255, int(v)))
+
+    def get_phones(self):
+        return self.board.fpga.phones
+
+    def set_phones(self, plugged):
+        self.board.fpga.set_phones(plugged)
+
+    def save(self):
+        self.board.eeprom.save()
 
     def click(self, name, hold_ms=120, settle_ms=150):
         self.button(name, True)
@@ -170,6 +195,11 @@ class Machine:
         return "\n".join(out)
 
     # -- first-boot provisioning ------------------------------------------
+    @staticmethod
+    def resolve_band(band):
+        """-> (board variant, argument for provision())"""
+        return BAND_VARIANT.get(band.upper(), "A"), band.upper()
+
     def is_blank(self):
         return all(b == 0xFF for b in self.board.eeprom.data)
 

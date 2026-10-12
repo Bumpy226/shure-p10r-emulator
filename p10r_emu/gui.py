@@ -6,7 +6,6 @@ import tkinter as tk
 from tkinter import ttk, filedialog
 
 from .board import LCD_W, LCD_H
-from .fpga import BUTTONS
 
 SCALE = 6
 KEYMAP = {"Up": "up", "Down": "down", "Return": "enter", "KP_Enter": "enter",
@@ -118,16 +117,22 @@ class App:
         unit = ttk.LabelFrame(left, text="Unit", padding=6)
         unit.grid(row=5, column=0, columnspan=5, sticky="ew", pady=(8, 0))
         self.batt = tk.DoubleVar(value=machine.board.battery_mv / 1000.0)
-        self.vol = tk.IntVar(value=machine.board.fpga.volume)
-        self.phones = tk.BooleanVar(value=machine.board.fpga.phones)
+        self.vol = tk.IntVar(value=machine.get_volume())
+        self.phones = tk.BooleanVar(value=machine.get_phones())
         ttk.Label(unit, text="Battery (V)").grid(row=0, column=0, sticky="w")
         tk.Scale(unit, variable=self.batt, from_=1.6, to=3.4, resolution=0.05,
                  orient="horizontal", length=200, command=self._set_batt).grid(row=0, column=1)
         ttk.Label(unit, text="Volume knob").grid(row=1, column=0, sticky="w")
         tk.Scale(unit, variable=self.vol, from_=0, to=255, orient="horizontal",
                  length=200, command=self._set_vol).grid(row=1, column=1)
-        ttk.Checkbutton(unit, text="Earphones plugged in", variable=self.phones,
-                        command=self._set_phones).grid(row=2, column=0, columnspan=2, sticky="w")
+        if machine.has_phones:
+            ttk.Checkbutton(unit, text="Earphones plugged in", variable=self.phones,
+                            command=self._set_phones).grid(row=2, column=0, sticky="w")
+        if hasattr(machine, "set_power"):
+            self.power = tk.BooleanVar(value=machine.board.power)
+            ttk.Checkbutton(unit, text="Power switch on", variable=self.power,
+                            command=lambda: self.emu.call(self.m.set_power, self.power.get())
+                            ).grid(row=2, column=1, sticky="w")
         row = ttk.Frame(unit)
         row.grid(row=3, column=0, columnspan=2, sticky="w", pady=(4, 0))
         ttk.Button(row, text="Reset", command=lambda: self.emu.call(self.m.reset)).pack(side="left")
@@ -219,10 +224,10 @@ class App:
         self.m.board.battery_mv = self.batt.get() * 1000.0
 
     def _set_vol(self, _=None):
-        self.m.board.fpga.volume = int(self.vol.get())
+        self.emu.call(self.m.set_volume, int(self.vol.get()))
 
     def _set_phones(self):
-        self.emu.call(self.m.board.fpga.set_phones, self.phones.get())
+        self.emu.call(self.m.set_phones, self.phones.get())
 
     def _set_noise(self, _=None):
         try:
@@ -327,7 +332,7 @@ class App:
     # -- periodic refresh -------------------------------------------------
     def _draw_lcd(self):
         b = self.m.board
-        red, green, rf, back = b.fpga.leds()
+        red, green, rf, back = self.m.leds()
         lit = int(0x70 + 0x8F * back)
         bg = "#%02x%02x%02x" % (int(lit * 0.80), int(lit * 0.92), lit) if back > 0 else "#6f7b68"
         fg = "#0b1410"
@@ -354,7 +359,7 @@ class App:
         self.status.set("tuned %8.3f MHz   LO %8.3f MHz   antenna %s\n"
                         "RF at antenna %6.1f dBm %s\n"
                         "uptime %7.1f s   speed %3.0f%%%s" % (
-                            b.synth.rf_khz / 1000.0, b.synth.lo_khz / 1000.0, b.fpga.antenna(),
+                            b.synth.rf_khz / 1000.0, b.synth.lo_khz / 1000.0, self.m.antenna(),
                             lvl, "(carrier)" if tx else "(noise) ",
                             self.m.time_ms / 1000.0, self.emu.speed * 100,
                             "   FAULT" if self.m.fault else ""))
@@ -362,7 +367,7 @@ class App:
 
     def close(self):
         self.emu.running = False
-        self.m.board.eeprom.save()
+        self.m.save()
         self.root.destroy()
 
     def run(self):
